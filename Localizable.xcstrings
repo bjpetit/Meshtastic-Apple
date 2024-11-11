@@ -21092,7 +21092,7 @@
     "The state of the LED (on/off)" : {
 
     },
-    "The tertiarypublic key authorized to send admin messages to this node." : {
+    "The tertiary public key authorized to send admin messages to this node." : {
 
     },
     "There has been no response to a request for device metadata over the admin channel for this node." : {

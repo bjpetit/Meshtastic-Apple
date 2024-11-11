@@ -821,6 +821,12 @@ func upsertSecurityConfigPacket(config: Config.SecurityConfig, nodeNum: Int64, s
 				if config.adminKey.count > 0 {
 					newSecurityConfig.adminKey = config.adminKey[0]
 				}
+				if config.adminKey.count > 1 {
+					newSecurityConfig.adminKey2 = config.adminKey[1]
+				}
+				if config.adminKey.count > 2 {
+					newSecurityConfig.adminKey3 = config.adminKey[2]
+				}
 				newSecurityConfig.isManaged = config.isManaged
 				newSecurityConfig.serialEnabled = config.serialEnabled
 				newSecurityConfig.debugLogApiEnabled = config.debugLogApiEnabled
@@ -831,6 +837,12 @@ func upsertSecurityConfigPacket(config: Config.SecurityConfig, nodeNum: Int64, s
 				fetchedNode[0].securityConfig?.privateKey = config.privateKey
 				if config.adminKey.count > 0 {
 					fetchedNode[0].securityConfig?.adminKey = config.adminKey[0]
+				}
+				if config.adminKey.count > 1 {
+					fetchedNode[0].securityConfig?.adminKey2 = config.adminKey[1]
+				}
+				if config.adminKey.count > 2 {
+					fetchedNode[0].securityConfig?.adminKey3 = config.adminKey[2]
 				}
 				fetchedNode[0].securityConfig?.isManaged = config.isManaged
 				fetchedNode[0].securityConfig?.serialEnabled = config.serialEnabled

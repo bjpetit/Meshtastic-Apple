@@ -20,7 +20,7 @@ struct SecurityConfig: View {
 
 	var node: NodeInfoEntity?
 
-	@State var hasChanges = false
+	@State var hasChanges: Bool = false
 	@State var publicKey = ""
 	@State var hasValidPublicKey: Bool = false
 	@State var privateKey = ""
@@ -35,6 +35,40 @@ struct SecurityConfig: View {
 	@State var serialEnabled = false
 	@State var debugLogApiEnabled = false
 	@State var adminChannelEnabled = false
+
+	var saveButton: some View {
+		SaveConfigButton(node: node, hasChanges: $hasChanges) {
+			if !hasValidPublicKey || !hasValidPrivateKey || !hasValidAdminKey || !hasValidAdminKey2 || !hasValidAdminKey3 {
+				return
+			}
+			guard let connectedNode = getNodeInfo(id: bleManager.connectedPeripheral.num, context: context),
+				  let fromUser = connectedNode.user,
+				  let toUser = node?.user else {
+				return
+			}
+			var config = Config.SecurityConfig()
+			config.publicKey = Data(base64Encoded: publicKey) ?? Data()
+			config.privateKey = Data(base64Encoded: privateKey) ?? Data()
+			config.adminKey = [Data(base64Encoded: adminKey) ?? Data(), Data(base64Encoded: adminKey2) ?? Data(), Data(base64Encoded: adminKey3) ?? Data()]
+			config.isManaged = isManaged
+			config.serialEnabled = serialEnabled
+			config.debugLogApiEnabled = debugLogApiEnabled
+			config.adminChannelEnabled = adminChannelEnabled
+
+			let adminMessageId = bleManager.saveSecurityConfig(
+				config: config,
+				fromUser: fromUser,
+				toUser: toUser,
+				adminIndex: connectedNode.myInfo?.adminIndex ?? 0
+			)
+			if adminMessageId > 0 {
+				// Should show a saved successfully alert once I know that to be true
+				// for now just disable the button after a successful save
+				hasChanges = false
+				goBack()
+			}
+		}
+	}
 
 	var body: some View {
 		VStack {
@@ -85,12 +119,12 @@ struct SecurityConfig: View {
 							.font(idiom == .phone ? .caption : .callout)
 						Divider()
 						Label("Tertiary Admin Key", systemImage: "key.viewfinder")
-						SecureInput("Tertiary Admin Key", text: $adminKey2, isValid: $hasValidAdminKey2)
+						SecureInput("Tertiary Admin Key", text: $adminKey3, isValid: $hasValidAdminKey3)
 							.background(
 								RoundedRectangle(cornerRadius: 10.0)
 									.stroke(hasValidAdminKey3 ? Color.clear : Color.red, lineWidth: 2.0)
 							)
-						Text("The tertiarypublic key authorized to send admin messages to this node.")
+						Text("The tertiary public key authorized to send admin messages to this node.")
 							.foregroundStyle(.secondary)
 							.font(idiom == .phone ? .caption : .callout)
 					}
@@ -122,6 +156,7 @@ struct SecurityConfig: View {
 					.toggleStyle(SwitchToggleStyle(tint: .accentColor))
 				}
 			}
+			saveButton
 		}
 		.scrollDismissesKeyboard(.immediately)
 		.navigationTitle("Security Config")
@@ -132,69 +167,6 @@ struct SecurityConfig: View {
 				name: "\(bleManager.connectedPeripheral?.shortName ?? "?")"
 			)
 		})
-		.onChange(of: isManaged) { _, newIsManaged in
-			if newIsManaged != node?.securityConfig?.isManaged { hasChanges = true }
-		}
-		.onChange(of: serialEnabled) { _, newSerialEnabled in
-			if newSerialEnabled != node?.securityConfig?.serialEnabled { hasChanges = true }
-		}
-		.onChange(of: debugLogApiEnabled) { _, newDebugLogApiEnabled in
-			if newDebugLogApiEnabled != node?.securityConfig?.debugLogApiEnabled { hasChanges = true }
-		}
-		.onChange(of: adminChannelEnabled) { _, newAdminChannelEnabled in
-			if newAdminChannelEnabled != node?.securityConfig?.adminChannelEnabled { hasChanges = true }
-		}
-		.onChange(of: publicKey) {
-			let tempKey = Data(base64Encoded: publicKey) ?? Data()
-			if tempKey.count == 32 {
-				hasValidPublicKey = true
-			} else {
-				hasValidPublicKey = false
-			}
-			hasChanges = true
-		}
-		.onChange(of: privateKey) {
-			let tempKey = Data(base64Encoded: privateKey) ?? Data()
-			if tempKey.count == 32 {
-				hasValidPrivateKey = true
-			} else {
-				hasValidPrivateKey = false
-			}
-			hasChanges = true
-		}
-		.onChange(of: adminKey) { _, key in
-			let tempKey = Data(base64Encoded: key) ?? Data()
-			if key.isEmpty {
-				hasValidAdminKey = true
-			} else if tempKey.count == 32 {
-				hasValidAdminKey = true
-			} else {
-				hasValidAdminKey = false
-			}
-			hasChanges = true
-		}
-		.onChange(of: adminKey2) { _, key in
-			let tempKey = Data(base64Encoded: key) ?? Data()
-			if key.isEmpty {
-				hasValidAdminKey2 = true
-			} else if tempKey.count == 32 {
-				hasValidAdminKey2 = true
-			} else {
-				hasValidAdminKey2 = false
-			}
-			hasChanges = true
-		}
-		.onChange(of: adminKey3) { _, key in
-			let tempKey = Data(base64Encoded: key) ?? Data()
-			if key.isEmpty {
-				hasValidAdminKey3 = true
-			} else if tempKey.count == 32 {
-				hasValidAdminKey3 = true
-			} else {
-				hasValidAdminKey3 = false
-			}
-			hasChanges = true
-		}
 		.onFirstAppear {
 			// Need to request a DeviceConfig from the remote node before allowing changes
 			if let connectedPeripheral = bleManager.connectedPeripheral, let node {
@@ -218,39 +190,61 @@ struct SecurityConfig: View {
 				}
 			}
 		}
-
-		SaveConfigButton(node: node, hasChanges: $hasChanges) {
-
-			if !hasValidPublicKey || !hasValidPrivateKey || !hasValidAdminKey {
-				return
+		.onChange(of: isManaged) { _, newIsManaged in
+			if newIsManaged != node?.securityConfig?.isManaged { hasChanges = true }
+		}
+		.onChange(of: serialEnabled) { _, newSerialEnabled in
+			if newSerialEnabled != node?.securityConfig?.serialEnabled { hasChanges = true }
+		}
+		.onChange(of: debugLogApiEnabled) { _, newDebugLogApiEnabled in
+			if newDebugLogApiEnabled != node?.securityConfig?.debugLogApiEnabled { hasChanges = true }
+		}
+		.onChange(of: adminChannelEnabled) { _, newAdminChannelEnabled in
+			if newAdminChannelEnabled != node?.securityConfig?.adminChannelEnabled { hasChanges = true }
+		}
+		.onChange(of: publicKey) {
+			let tempKey = Data(base64Encoded: publicKey) ?? Data()
+			if tempKey.count == 32 {
+				hasValidPublicKey = true
+				hasChanges = true
+			} else {
+				hasValidPublicKey = false
 			}
-
-			guard let connectedNode = getNodeInfo(id: bleManager.connectedPeripheral.num, context: context),
-				  let fromUser = connectedNode.user,
-				  let toUser = node?.user else {
-				return
+		}
+		.onChange(of: privateKey) {
+			let tempKey = Data(base64Encoded: privateKey) ?? Data()
+			if tempKey.count == 32 {
+				hasValidPrivateKey = true
+				hasChanges = true
+			} else {
+				hasValidPrivateKey = false
 			}
-
-			var config = Config.SecurityConfig()
-			config.publicKey = Data(base64Encoded: publicKey) ?? Data()
-			config.privateKey = Data(base64Encoded: privateKey) ?? Data()
-			config.adminKey = [Data(base64Encoded: adminKey) ?? Data(), Data(base64Encoded: adminKey2) ?? Data(), Data(base64Encoded: adminKey3) ?? Data()]
-			config.isManaged = isManaged
-			config.serialEnabled = serialEnabled
-			config.debugLogApiEnabled = debugLogApiEnabled
-			config.adminChannelEnabled = adminChannelEnabled
-
-			let adminMessageId = bleManager.saveSecurityConfig(
-				config: config,
-				fromUser: fromUser,
-				toUser: toUser,
-				adminIndex: connectedNode.myInfo?.adminIndex ?? 0
-			)
-			if adminMessageId > 0 {
-				// Should show a saved successfully alert once I know that to be true
-				// for now just disable the button after a successful save
-				hasChanges = false
-				goBack()
+		}
+		.onChange(of: adminKey) { _, key in
+			let tempKey = Data(base64Encoded: key) ?? Data()
+			if key.isEmpty || tempKey.count == 32 {
+				hasValidAdminKey = true
+				hasChanges = true
+			} else {
+				hasValidAdminKey = false
+			}
+		}
+		.onChange(of: adminKey2) { _, key in
+			let tempKey = Data(base64Encoded: key) ?? Data()
+			if key.isEmpty || tempKey.count == 32 {
+				hasValidAdminKey2 = true
+				hasChanges = true
+			} else {
+				hasValidAdminKey2 = false
+			}
+		}
+		.onChange(of: adminKey3) { _, key in
+			let tempKey = Data(base64Encoded: key) ?? Data()
+			if key.isEmpty || tempKey.count == 32 {
+				hasValidAdminKey3 = true
+				hasChanges = true
+			} else {
+				hasValidAdminKey3 = false
 			}
 		}
 	}
@@ -259,8 +253,8 @@ struct SecurityConfig: View {
 		self.publicKey = node?.securityConfig?.publicKey?.base64EncodedString() ?? ""
 		self.privateKey = node?.securityConfig?.privateKey?.base64EncodedString() ?? ""
 		self.adminKey = node?.securityConfig?.adminKey?.base64EncodedString() ?? ""
-		self.adminKey2 = node?.securityConfig?.adminKey?.base64EncodedString() ?? ""
-		self.adminKey3 = node?.securityConfig?.adminKey?.base64EncodedString() ?? ""
+		self.adminKey2 = node?.securityConfig?.adminKey2?.base64EncodedString() ?? ""
+		self.adminKey3 = node?.securityConfig?.adminKey3?.base64EncodedString() ?? ""
 		self.isManaged = node?.securityConfig?.isManaged ?? false
 		self.serialEnabled = node?.securityConfig?.serialEnabled ?? false
 		self.debugLogApiEnabled = node?.securityConfig?.debugLogApiEnabled ?? false
