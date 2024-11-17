@@ -25,6 +25,7 @@ extension PositionEntity {
 		let pointOfInterest = LocationHelper.currentLocation
 
 		if pointOfInterest.latitude != LocationHelper.DefaultLocation.latitude && pointOfInterest.longitude != LocationHelper.DefaultLocation.longitude {
+			// meshMapDistance of 800000 == unset in config
 			let d: Double = UserDefaults.meshMapDistance * 1.1
 			let r: Double = 6371009
 			let meanLatitidue = pointOfInterest.latitude * .pi / 180
