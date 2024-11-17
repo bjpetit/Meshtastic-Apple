@@ -18,8 +18,9 @@ struct MapSettingsForm: View {
 	@Binding var traffic: Bool
 	@Binding var pointsOfInterest: Bool
 	@Binding var mapLayer: MapLayer
-	@AppStorage("meshMapDistance") private var meshMapDistance: Double = 800000
+	@AppStorage("meshMapDistance") private var meshMapDistance: Double = 800000 // 800000 == filter off
 	@Binding var meshMap: Bool
+	@State private var distanceFilter = false
 
 	var body: some View {
 
@@ -40,18 +41,38 @@ struct MapSettingsForm: View {
 						UserDefaults.mapLayer = newMapLayer
 					}
 					if meshMap {
-						HStack {
-							Label("Show nodes", systemImage: "lines.measurement.horizontal")
-							Picker("", selection: $meshMapDistance) {
-								ForEach(MeshMapDistances.allCases) { di in
-									Text(di.description)
-										.tag(di.id)
-								}
+						Toggle(isOn: $distanceFilter) {
+
+							Label {
+								Text("Distance")
+							} icon: {
+								Image(systemName: "map")
 							}
-							.pickerStyle(DefaultPickerStyle())
 						}
-						.onChange(of: meshMapDistance) { _, newMeshMapDistance in
-							UserDefaults.meshMapDistance = newMeshMapDistance
+						.toggleStyle(SwitchToggleStyle(tint: .accentColor))
+						.onAppear {
+							// If distance not default value, filter toggle on, else off
+							distanceFilter = (meshMapDistance != 800000)
+						}
+						.onChange(of: distanceFilter) {
+							if distanceFilter == false {
+								// If toggle turned off, set distance to 800000
+								meshMapDistance = 800000
+							}
+						}
+						.listRowSeparator(distanceFilter ? .hidden : .visible)
+
+						if distanceFilter {
+							HStack {
+								Label("Show nodes", systemImage: "lines.measurement.horizontal")
+								Picker("", selection: $meshMapDistance) {
+									ForEach(MeshMapDistances.allCases) { di in
+										Text(di.description)
+											.tag(di.id)
+									}
+								}
+								.pickerStyle(DefaultPickerStyle())
+							}
 						}
 						Toggle(isOn: $waypoints) {
 							Label("Show Waypoints ", systemImage: "signpost.right.and.left")
